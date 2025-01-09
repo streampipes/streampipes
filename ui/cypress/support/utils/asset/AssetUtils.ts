@@ -16,8 +16,121 @@
  *
  */
 
+import { AssetBtns } from './AssetBtns';
+import { ConnectUtils } from '../connect/ConnectUtils';
+
 export class AssetUtils {
     public static goToAssets() {
         cy.visit('#/assets/overview');
+    }
+
+    public static goBackToOverview() {
+        AssetBtns.goBackToOverviewBtn()
+            .should('be.visible')
+            .should('not.be.disabled')
+            .click();
+    }
+
+    public static addNewAsset(assetName: string) {
+        AssetBtns.createAssetBtn().click();
+        AssetBtns.assetNameInput().clear();
+        AssetBtns.assetNameInput().type(assetName);
+        AssetBtns.saveAssetBtn().click();
+    }
+
+    public static openManageAssetLinks() {
+        AssetBtns.manageLinksBtn().should('be.enabled');
+        AssetBtns.manageLinksBtn().click();
+    }
+
+    public static addNewAssetWithLink(
+        assetName: string,
+        selectLinkFunction: () => void,
+    ) {
+        AssetUtils.goToAssets();
+        AssetUtils.addNewAsset(assetName);
+        AssetBtns.assetLinksTab().click();
+        AssetUtils.openManageAssetLinks();
+        selectLinkFunction();
+        AssetBtns.updateAssetLinksBtn().click();
+        AssetBtns.saveAssetBtn().click();
+        cy.wait(1000);
+    }
+
+    public static selectAdapterAssetLink(adapterName: string) {
+        AssetBtns.adapterCheckbox(adapterName).click();
+    }
+
+    public static selectDataStreamAssetLink(adapterName: string) {
+        AssetBtns.dataStreamCheckbox(adapterName).click();
+    }
+
+    public static selectDataViewAssetLink(adapterName: string) {
+        AssetBtns.dataViewCheckbox(adapterName).click();
+    }
+
+    public static selectFileAssetLink(fileName: string) {
+        AssetBtns.fileCheckbox(fileName).click();
+    }
+
+    public static selectPipelineAssetLink(pipelineName: string) {
+        AssetBtns.pipelineCheckbox(pipelineName).click();
+    }
+
+    public static selectMeasurementAssetLink(measurementName: string) {
+        AssetBtns.measurementCheckbox(measurementName).click();
+    }
+
+    public static checkAmountOfAssets(amount: number) {
+        cy.dataCy('assets-table').should('have.length', amount);
+    }
+
+    public static checkAmountOfLinkedResources(amount: number) {
+        if (amount === 0) {
+            cy.wait(1000);
+            cy.dataCy('linked-resources-list').should('not.exist');
+        } else {
+            cy.dataCy('linked-resources-list')
+                .children()
+                .should('have.length', amount);
+        }
+    }
+
+    public static editAsset(assetName: string) {
+        AssetBtns.editAssetBtn(assetName).click();
+    }
+
+    public static addAssetWithOneAdapter(assetName: string) {
+        const adapterName = 'Machine_Data_Simulator';
+        ConnectUtils.addMachineDataSimulator(adapterName);
+
+        // Create new asset from adapters
+        AssetUtils.goToAssets();
+
+        AssetUtils.addNewAsset(assetName);
+
+        AssetBtns.assetLinksTab().click();
+        AssetUtils.openManageAssetLinks();
+
+        AssetUtils.selectAdapterAssetLink(adapterName);
+        AssetUtils.selectDataStreamAssetLink(adapterName);
+        AssetBtns.updateAssetLinksBtn().click();
+
+        AssetUtils.checkAmountOfLinkedResources(2);
+        AssetBtns.saveAssetBtn().click();
+        AssetUtils.goBackToOverview();
+    }
+
+    public static validateOneAssetWithNoAssetLinks(assetName: string) {
+        AssetUtils.goToAssets();
+        AssetUtils.checkAmountOfAssets(1);
+        AssetUtils.editAsset(assetName);
+        AssetBtns.assetLinksTab().click();
+        AssetUtils.checkAmountOfLinkedResources(0);
+    }
+
+    public static deleteAsset(assetName: string) {
+        AssetBtns.deleteAssetBtn(assetName).click();
+        cy.dataCy('confirm-delete').click();
     }
 }

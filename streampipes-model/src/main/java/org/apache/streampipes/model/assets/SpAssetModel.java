@@ -30,7 +30,12 @@ public class SpAssetModel extends SpAsset {
   @JsonProperty("_id")
   private @SerializedName("_id") String id;
 
+  @JsonProperty("_rev")
+  private @SerializedName("_rev") String rev;
+
   private boolean removable;
+
+  private String appDocType;
 
   public SpAssetModel() {
     super();
@@ -48,7 +53,23 @@ public class SpAssetModel extends SpAsset {
     return removable;
   }
 
+  public String getRev() {
+    return rev;
+  }
+
+  public void setRev(String rev) {
+    this.rev = rev;
+  }
+
   public void setRemovable(boolean removable) {
     this.removable = removable;
+  }
+
+  public String getAppDocType() {
+    return appDocType;
+  }
+
+  public void setAppDocType(String appDocType) {
+    this.appDocType = appDocType;
   }
 }

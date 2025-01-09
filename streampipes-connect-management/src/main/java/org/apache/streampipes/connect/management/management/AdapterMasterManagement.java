@@ -18,6 +18,7 @@
 
 package org.apache.streampipes.connect.management.management;
 
+import org.apache.streampipes.assetmodel.management.AssetModelHelper;
 import org.apache.streampipes.commons.exceptions.NoServiceEndpointsAvailableException;
 import org.apache.streampipes.commons.exceptions.SepaParseException;
 import org.apache.streampipes.commons.exceptions.connect.AdapterException;
@@ -37,6 +38,7 @@ import org.apache.streampipes.svcdiscovery.api.model.SpServiceUrlProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.NoSuchElementException;
 
@@ -50,6 +52,7 @@ public class AdapterMasterManagement {
   private final IAdapterStorage adapterInstanceStorage;
   private final AdapterMetrics adapterMetrics;
   private final AdapterResourceManager adapterResourceManager;
+  private final AssetModelHelper assetModelHelper;
 
   private final DataStreamResourceManager dataStreamResourceManager;
 
@@ -63,6 +66,7 @@ public class AdapterMasterManagement {
     this.adapterMetrics = adapterMetrics;
     this.adapterResourceManager = adapterResourceManager;
     this.dataStreamResourceManager = dataStreamResourceManager;
+    this.assetModelHelper = new AssetModelHelper();
   }
 
   public void addAdapter(
@@ -116,72 +120,98 @@ public class AdapterMasterManagement {
   }
 
   /**
-   * First the adapter is stopped removed, then the corresponding data source is deleted
+   * This method deletes the adapter and the related resources inlcuding the data stream, and the asset links in the
+   * asset model
    *
    * @param elementId The elementId of the adapter instance
-   * @throws AdapterException when adapter can not be stopped
    */
-  public void deleteAdapter(String elementId) throws AdapterException {
+  public void deleteAdapter(String elementId) {
 
-    // Stop stream adapter
+    var adapterDescription = getAdapterDescription(elementId);
+
+    stopAdapterWithLogging(elementId);
+
+    deleteAdaterFromCouchDbLoggingServiceAndAssetLinks(elementId);
+
+    deleteCorrespondingDataStream(adapterDescription);
+
+  }
+
+
+  private void stopAdapterWithLogging(String elementId) {
+    LOG.info("Attempting to stop adapter: {}", elementId);
     try {
-      stopStreamAdapter(elementId);
+      stopAdapter(elementId);
+      LOG.info("Successfully stopped adapter with id: {}", elementId);
     } catch (AdapterException e) {
-      LOG.info("Could not stop adapter: " + elementId, e);
+      LOG.error("Failed to stop adapter with id: {}", elementId, e);
     }
+  }
 
-    AdapterDescription adapter = adapterInstanceStorage.getElementById(elementId);
-    // Delete adapter
+  private void deleteAdaterFromCouchDbLoggingServiceAndAssetLinks(String elementId) {
     adapterResourceManager.delete(elementId);
     ExtensionsLogProvider.INSTANCE.remove(elementId);
-    LOG.info("Successfully deleted adapter: " + elementId);
+    removeAdapterFromAllAssetLinks(elementId);
+    LOG.info("Successfully deleted adapter in couchdb: {}", elementId);
+  }
 
-    // Delete data stream
-    this.dataStreamResourceManager.delete(adapter.getCorrespondingDataStreamElementId());
-    LOG.info("Successfully deleted data stream: " + adapter.getCorrespondingDataStreamElementId());
+  private void removeAdapterFromAllAssetLinks(String elementId) {
+    try {
+      assetModelHelper.removeAssetLinkFromAllAssets(elementId);
+    } catch (IOException e) {
+      LOG.error("Failed to remove adapter from asset models: {}", elementId, e);
+    }
+  }
+
+  private void deleteCorrespondingDataStream(AdapterDescription adapterDescription) {
+    var correspondingDataStreamElementId = adapterDescription.getCorrespondingDataStreamElementId();
+    dataStreamResourceManager.delete(correspondingDataStreamElementId);
+    removeAdapterFromAllAssetLinks(correspondingDataStreamElementId);
+    LOG.info("Successfully deleted data stream in couchdb: {}", correspondingDataStreamElementId);
   }
 
   public List<AdapterDescription> getAllAdapterInstances() {
     return adapterInstanceStorage.findAll();
   }
 
-  public void stopStreamAdapter(String elementId) throws AdapterException {
-    AdapterDescription ad = adapterInstanceStorage.getElementById(elementId);
 
-    WorkerRestClient.stopStreamAdapter(ad.getSelectedEndpointUrl(), ad);
+  public void stopAdapter(String elementId) throws AdapterException {
+    var adapterDescription = getAdapterDescription(elementId);
+
+    WorkerRestClient.stopStreamAdapter(adapterDescription.getSelectedEndpointUrl(), adapterDescription);
     ExtensionsLogProvider.INSTANCE.reset(elementId);
 
     // remove the adapter from the metrics manager so that
     // no metrics for this adapter are exposed anymore
     try {
-      adapterMetrics.remove(ad.getElementId(), ad.getName());
+      adapterMetrics.remove(adapterDescription.getElementId(), adapterDescription.getName());
     } catch (NoSuchElementException e) {
-      LOG.error("Could not remove adapter metrics for adapter {}", ad.getName());
+      LOG.error("Could not remove adapter metrics for adapter {}", adapterDescription.getName());
     }
   }
 
   public void startStreamAdapter(String elementId) throws AdapterException {
 
-    var ad = adapterInstanceStorage.getElementById(elementId);
+    var adapterDescription = getAdapterDescription(elementId);
 
     try {
       // Find endpoint to start adapter on
       var baseUrl = new ExtensionsServiceEndpointGenerator().getEndpointBaseUrl(
-          ad.getAppId(),
+          adapterDescription.getAppId(),
           SpServiceUrlProvider.ADAPTER,
-          ad.getDeploymentConfiguration()
-            .getDesiredServiceTags()
+          adapterDescription.getDeploymentConfiguration()
+                            .getDesiredServiceTags()
       );
 
       // Update selected endpoint URL of adapter
-      ad.setSelectedEndpointUrl(baseUrl);
-      adapterInstanceStorage.updateElement(ad);
+      adapterDescription.setSelectedEndpointUrl(baseUrl);
+      adapterInstanceStorage.updateElement(adapterDescription);
 
       // Invoke adapter instance
       WorkerRestClient.invokeStreamAdapter(baseUrl, elementId);
 
       // register the adapter at the metrics manager so that the AdapterHealthCheck can send metrics
-      adapterMetrics.register(ad.getElementId(), ad.getName());
+      adapterMetrics.register(adapterDescription.getElementId(), adapterDescription.getName());
 
       LOG.info("Started adapter " + elementId + " on: " + baseUrl);
     } catch (NoServiceEndpointsAvailableException e) {
@@ -199,5 +229,9 @@ public class AdapterMasterManagement {
       LOG.error("Error while installing data source: {}", stream.getElementId(), e);
       throw new AdapterException();
     }
+  }
+
+  private AdapterDescription getAdapterDescription(String elementId) {
+    return adapterInstanceStorage.getElementById(elementId);
   }
 }

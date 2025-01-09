@@ -136,14 +136,17 @@ export class DataLakeUtils {
         PrepareTestDataUtils.loadDataIntoDataLake('fileTest/random.csv');
     }
 
-    public static createAndEditDashboard(name: string) {
+    public static createDashboard(name: string) {
         // Create new data view
         cy.dataCy('open-new-dashboard-dialog').click();
 
         // Configure data view
         cy.dataCy('data-view-name').type(name);
         cy.dataCy('save-data-view').click();
+    }
 
+    public static createAndEditDashboard(name: string) {
+        this.createDashboard(name);
         this.editDashboard(name);
     }
 
@@ -363,10 +366,6 @@ export class DataLakeUtils {
         cy.dataCy('data-explorer-select-data-set-create-btn').click();
     }
 
-    public static goToDatalakeConfiguration() {
-        cy.visit('#/configuration/datalake');
-    }
-
     public static checkResults(
         dataLakeIndex: string,
         fileRoute: string,
@@ -445,23 +444,6 @@ export class DataLakeUtils {
         currentDate.setMonth(currentDate.getMonth() + 1);
 
         return currentDate;
-    }
-
-    public static waitForCountingResults() {
-        cy.dataCy('datalake-number-of-events-spinner', {
-            timeout: 10000,
-        }).should('exist');
-        cy.dataCy('datalake-number-of-events-spinner', {
-            timeout: 10000,
-        }).should('not.exist');
-    }
-
-    public static getDatalakeNumberOfEvents(): Cypress.Chainable<string> {
-        return cy
-            .dataCy('datalake-number-of-events', { timeout: 10000 })
-            .should('be.visible')
-            .invoke('text')
-            .then(text => text.trim());
     }
 
     public static checkRowsDashboardTable(amount: number) {

@@ -64,7 +64,9 @@
                     <mat-checkbox
                         color="accent"
                         [checked]="linkSelected(element.elementId)"
-                        data-cy="manage-assets-select-adapters-checkbox"
+                        [attr.data-cy]="
+                            'select-adapters-checkbox-' + element.name
+                        "
                         (change)="
                             selectLink(
                                 $event.checked,
@@ -173,6 +175,12 @@
                     <mat-checkbox
                         color="accent"
                         [checked]="linkSelected(element.elementId)"
+                        [attr.data-cy]="
+                            'select-measurement-checkbox-' +
+                            element.measureName
+                                .toLowerCase()
+                                .replaceAll(' ', '_')
+                        "
                         (change)="
                             selectLink(
                                 $event.checked,
@@ -228,7 +236,9 @@
                     <mat-checkbox
                         color="accent"
                         [checked]="linkSelected(source.elementId)"
-                        data-cy="manage-assets-select-data-sources-checkbox"
+                        [attr.data-cy]="
+                            'select-data-stream-checkbox-' + source.name
+                        "
                         (change)="
                             selectLink(
                                 $event.checked,
@@ -282,6 +292,9 @@
                     <mat-checkbox
                         color="accent"
                         [checked]="linkSelected(element.elementId)"
+                        [attr.data-cy]="
+                            'select-data-view-checkbox-' + element.name
+                        "
                         (change)="
                             selectLink(
                                 $event.checked,
@@ -333,6 +346,10 @@
                     <mat-checkbox
                         color="accent"
                         [checked]="linkSelected(element.fileId)"
+                        [attr.data-cy]="
+                            'select-file-checkbox-' +
+                            element.filename.replaceAll('.', '_')
+                        "
                         (change)="
                             selectLink(
                                 $event.checked,
@@ -386,6 +403,10 @@
                     <mat-checkbox
                         color="accent"
                         [checked]="linkSelected(pipeline.elementId)"
+                        [attr.data-cy]="
+                            'select-pipeline-checkbox-' +
+                            pipeline.name.toLowerCase().replaceAll(' ', '_')
+                        "
                         (change)="
                             selectLink(
                                 $event.checked,
@@ -394,8 +415,8 @@
                                 'pipeline'
                             )
                         "
-                        >{{ pipeline.name }}</mat-checkbox
-                    >
+                        >{{ pipeline.name }}
+                    </mat-checkbox>
                 </div>
             </div>
         </div>
